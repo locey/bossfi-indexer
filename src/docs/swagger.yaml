@@ -1,0 +1,21 @@
+info:
+  contact: {}
+paths:
+  /demo/create:
+    post:
+      consumes:
+      - application/json
+      description: 用于测试服务器连通性
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 创建数据
+      tags:
+      - 示例接口
+swagger: "2.0"
