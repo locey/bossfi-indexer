@@ -2,6 +2,7 @@
 name = "bossfi"
 port = 8000
 version = "v1"
+chain_id = 11155111
 [pgsql]
 host = "localhost"
 port = "5432"
@@ -22,10 +23,16 @@ idle_timeout = 180
 name = "sepolia"
 chain_id = 11155111
 endpoint = "https://sepolia.infura.io/v3/xxx"
+boss_token_address = "0x02061c94109EFF3A02BA09D24f7932692331ab96"
+boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
+start_block_number = 8545406
 [[chains]]
 name = "mainnet"
 chain_id = 1
 endpoint = "https://sepolia.infura.io/v3/xxx"
+boss_token_address = "0x02061c94109EFF3A02BA09D24f7932692331ab96"
+boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
+start_block_number = 8545406
 
 [monitor]
 pprof_enable = true

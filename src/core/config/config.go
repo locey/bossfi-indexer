@@ -20,6 +20,7 @@ type AppConfig struct {
 	Name    string `toml:"name" json:"name"`
 	Port    string `toml:"port" json:"port"`
 	Version string `toml:"version" json:"version"`
+	ChainId int    `toml:"chain_id" json:"chainId"` // 当前主链id
 }
 
 type MonitorConfig struct {
@@ -46,9 +47,12 @@ type RedisConfig struct {
 }
 
 type ChainConfig struct {
-	Name     string `toml:"name" json:"name"`
-	ChainId  int    `toml:"chain_id" json:"chainId"`
-	Endpoint string `toml:"endpoint" json:"endpoint"`
+	Name               string `toml:"name" json:"name"`
+	ChainId            int    `toml:"chain_id" json:"chainId"`
+	Endpoint           string `toml:"endpoint" json:"endpoint"`
+	BossTokenAddress   string `toml:"boss_token_address" json:"bossTokenAddress"`
+	BossStakingAddress string `toml:"boss_staking_address" json:"bossStakingAddress"`
+	StartBlockNumber   int64  `toml:"start_block_number" json:"startBlockNumber"`
 }
 
 // InitConfig 初始化配置
@@ -85,5 +89,5 @@ func getCurrentAbPath() string {
 }
 
 func getConfigAbPath() string {
-	return getCurrentAbPath() + "/config"
+	return getCurrentAbPath() + "/configs"
 }

@@ -24,5 +24,5 @@ func GetCurrentAbPath() string {
 }
 
 func GetConfigAbPath() string {
-	return GetCurrentAbPath() + "/config"
+	return GetCurrentAbPath() + "/configs"
 }
