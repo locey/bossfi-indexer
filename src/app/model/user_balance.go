@@ -2,14 +2,13 @@ package model
 
 import (
 	"bossfi-indexer/src/core/db"
-	"math/big"
 	"time"
 )
 
 type UserBalance struct {
 	ID         int64     `json:"id" gorm:"column:id;primaryKey"`
 	Address    string    `json:"address" gorm:"column:address"`
-	Balance    big.Int   `json:"balance" gorm:"column:balance;type:numeric(78,0)"`
+	Balance    string    `json:"balance" gorm:"column:balance;type:numeric(78,0)"`
 	Deleted    bool      `json:"deleted" gorm:"column:deleted;default:false"`
 	CreateTime time.Time `json:"create_time" gorm:"column:create_time;autoCreateTime"`
 	ModifyTime time.Time `json:"modify_time" gorm:"column:modify_time;autoUpdateTime"`

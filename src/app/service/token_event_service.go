@@ -81,14 +81,21 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 	lastNumber := s.GetLastBlockNumber()
 	if lastNumber == 0 {
 		lastNumber = evmAdapter.ChainConfig().StartBlockNumber
+	} else {
+		lastNumber += 1
 	}
 
 	// 根据最早和最后区块高度拉取所有该合约的事件
 	logs, err := evmAdapter.GetLogs(big.NewInt(lastNumber), nil, evmAdapter.ChainConfig().BossTokenAddress)
 	if err != nil {
-		log.Logger.Error("GetLogs failed!", zazap.Error(err))
+		log.Logger.Error("GetLogs failed!!", zazap.Error(err))
 		return
 	}
+	if len(logs) == 0 {
+		log.Logger.Info("GetLogs is empty")
+		return
+	}
+
 	// 解析日志数据并转成事件列表
 	events := ParseTokenEvents(logs)
 
@@ -110,14 +117,14 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 		// 构造一条更新或插入记录
 		record := model.UserBalance{
 			Address:    addr,
-			Balance:    *value, // 会传入 excluded.balance
+			Balance:    value.String(), // 会传入 excluded.balance
 			ModifyTime: time.Now(),
 		}
 
 		err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "address"}}, // 冲突字段
 			DoUpdates: clause.Assignments(map[string]interface{}{
-				"balance":     gorm.Expr("balance + EXCLUDED.balance"),
+				"balance":     gorm.Expr("bii_user_balance.balance + EXCLUDED.balance"),
 				"modify_time": time.Now(),
 			}),
 		}).Create(&record).Error
@@ -137,11 +144,24 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 		}
 
 		// 根据最新余额往回推算历史更新前后余额，作为余额变更日志记录
-		currentBalance := &newRecord.Balance
+		currentBalance := new(big.Int)
+		if _, ok := currentBalance.SetString(newRecord.Balance, 10); !ok {
+			log.Logger.Error("invalid number", zazap.String("balance", newRecord.Balance))
+			tx.Rollback()
+			return
+		}
+
 		for i := 0; i < len(balanceLogsMap[addr]); i++ {
-			balanceLogsMap[addr][i].AfterBalance = currentBalance
-			currentBalance = new(big.Int).Sub(currentBalance, balanceLogsMap[addr][i].ChangeBalance)
-			balanceLogsMap[addr][i].BeforeBalance = currentBalance
+			balanceLogsMap[addr][i].AfterBalance = currentBalance.String()
+
+			changeBalance := new(big.Int)
+			if _, ok := changeBalance.SetString(balanceLogsMap[addr][i].ChangeBalance, 10); !ok {
+				log.Logger.Error("invalid number", zazap.String("changeBalance", balanceLogsMap[addr][i].ChangeBalance))
+				tx.Rollback()
+				return
+			}
+			currentBalance = new(big.Int).Sub(currentBalance, changeBalance)
+			balanceLogsMap[addr][i].BeforeBalance = currentBalance.String()
 		}
 	}
 
@@ -161,6 +181,7 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 
 // ConfirmTokenEvent 确认区块事件（包括清理重组区块和回滚余额）
 func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
+	log.Logger.Info("ConfirmTokenEvent start...")
 	evmAdapter := ctx.GetClient(chainID).(*evm.Evm)
 	// 获取最终确认区块高度
 	block, err := evmAdapter.GetFinalizedBlock()
@@ -177,6 +198,10 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 			return
 		}
 		log.Logger.Error("GetEarlyUnConfirmBlock failed!", zazap.Error(err))
+		return
+	}
+	if len(confirmBlockList) == 0 {
+		log.Logger.Info("No unconfirmed blocks found.")
 		return
 	}
 
@@ -199,9 +224,13 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 	var deleteEventIds []int64
 	// 可以确认的区块事件
 	var confirmedEventIds []int64
+	// 是否重组
+	var rorg bool
 
 	for _, event := range confirmBlockList {
-		if eventOnChainMap[event.TxHash] == nil {
+		if rorg || eventOnChainMap[event.TxHash] == nil {
+			// 发现区块重组后，后面的所有区块事件都加入待回滚和待删除数组 confirmBlockList是升序的
+			rorg = true
 			rorgBlockEvents = append(rorgBlockEvents, event)
 			deleteEventIds = append(deleteEventIds, event.ID)
 		} else {
@@ -209,11 +238,13 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 		}
 	}
 
-	// 在事务前直接更新掉
-	err = s.dao.ConfirmedByIds(confirmedEventIds)
-	if err != nil {
-		log.Logger.Error("confirmedByIds failed!", zazap.Error(err))
-		return
+	// 在开启事务前先把已经确认的区块直接更新掉
+	if len(confirmedEventIds) > 0 {
+		err = s.dao.ConfirmedByIds(confirmedEventIds)
+		if err != nil {
+			log.Logger.Error("confirmedByIds failed!", zazap.Error(err))
+			return
+		}
 	}
 
 	// 计算出要回滚区块的 账户>金额数量
@@ -222,24 +253,54 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 	// 启用事务
 	tx := ctx.Ctx.DB.Begin()
 
-	// 批量删除
-	if err := tx.Model(&model.TokenEvent{}).Where("id in (?)", deleteEventIds[:]).UpdateColumn("deleted", true).Error; err != nil {
-		log.Logger.Error("deleteByIds failed!", zazap.Error(err))
-		tx.Rollback()
-		return
-	}
-
-	// 回滚余额
-	for address, balance := range rollbackBalanceMap {
-		if err := tx.Model(&model.UserBalance{}).Where("address = ?", address).UpdateColumn("balance", gorm.Expr("balance - ?", balance)).Error; err != nil {
-			log.Logger.Error("rollback balance failed!address:"+address, zazap.Error(err))
+	// 批量删除（务必只删除当前指定的这些id，防止删除该时刻别的同步线程新同步的id）
+	if len(deleteEventIds) > 0 {
+		if err := tx.Model(&model.TokenEvent{}).Where("id in (?)", deleteEventIds[:]).UpdateColumn("deleted", true).Error; err != nil {
+			log.Logger.Error("deleteByIds failed!", zazap.Error(err))
 			tx.Rollback()
 			return
 		}
 	}
 
+	// 回滚余额
+	if len(rollbackBalanceMap) > 0 {
+		var balanceLogs []*model.UserBalanceLog
+		for address, balance := range rollbackBalanceMap {
+			if err := tx.Model(&model.UserBalance{}).Where("address = ?", address).UpdateColumn("balance", gorm.Expr("balance - ?", balance)).Error; err != nil {
+				log.Logger.Error("rollback balance failed!address:"+address, zazap.Error(err))
+				tx.Rollback()
+				return
+			}
+			newUserBalance := model.UserBalance{}
+			tx.Where("address = ?", address).First(&newUserBalance)
+			currentBalance := new(big.Int)
+			if _, ok := currentBalance.SetString(newUserBalance.Balance, 10); !ok {
+				log.Logger.Error("rollback balance invalid number", zazap.String("balance", newUserBalance.Balance))
+				tx.Rollback()
+				return
+			}
+
+			var fromBalanceLog = model.UserBalanceLog{
+				Address:       address,
+				LogType:       3,                                                  // 区块重组回滚
+				BeforeBalance: new(big.Int).Add(currentBalance, balance).String(), // 后面更新余额后根据那个时刻都余额往前推算得出
+				ChangeBalance: new(big.Int).Mul(balance, big.NewInt(-1)).String(),
+				AfterBalance:  newUserBalance.Balance, // 后面更新余额后根据那个时刻都余额往前推算得出
+				TxHash:        "",
+			}
+
+			balanceLogs = append(balanceLogs, &fromBalanceLog)
+		}
+
+		if err := tx.Create(&balanceLogs).Error; err != nil {
+			log.Logger.Error("Create rollback balance log failed!", zazap.Error(err))
+			tx.Rollback()
+		}
+	}
+
 	// 提交事务
 	tx.Commit()
+	log.Logger.Info("ConfirmTokenEvent done")
 }
 
 func ParseTokenEvents(logs []types.Log) []*model.TokenEvent {
@@ -254,10 +315,10 @@ func ParseTokenEvents(logs []types.Log) []*model.TokenEvent {
 
 		switch topic0 {
 		case transferSig:
-			var value *big.Int
+			var value string
 			// 假设 Value 是最后一个数据字段，32 字节 big.Int
 			if len(l.Data) >= 32 {
-				value = new(big.Int).SetBytes(l.Data[:32])
+				value = new(big.Int).SetBytes(l.Data[:32]).String()
 			}
 
 			var event = model.TokenEvent{
@@ -266,8 +327,8 @@ func ParseTokenEvents(logs []types.Log) []*model.TokenEvent {
 				TxHash:      l.TxHash.Hex(),
 				LogIndex:    int(l.Index),
 				EventType:   model.EventTypeTransfer,
-				FromAddress: l.Topics[1].Hex(),
-				ToAddress:   l.Topics[2].Hex(),
+				FromAddress: common.HexToAddress(l.Topics[1].Hex()).Hex(),
+				ToAddress:   common.HexToAddress(l.Topics[2].Hex()).Hex(),
 				Amount:      value,
 				Confirmed:   false,
 			}
@@ -303,25 +364,37 @@ func CalcAddressBalance(events []*model.TokenEvent) (map[string]*big.Int, map[st
 	balanceLogMap := make(map[string][]*model.UserBalanceLog)
 	for _, event := range events {
 		if event.EventType == model.EventTypeTransfer {
+			// 如果 FromAddress 尚未初始化，则设为 0
+			fromBalance := addressBalance[event.FromAddress]
+			if fromBalance == nil {
+				fromBalance = big.NewInt(0)
+			}
+			toBalance := addressBalance[event.ToAddress]
+			if toBalance == nil {
+				toBalance = big.NewInt(0)
+			}
+			amount := new(big.Int)
+			amount.SetString(event.Amount, 10)
+
 			// 减去转出的金额
-			addressBalance[event.FromAddress] = addressBalance[event.FromAddress].Sub(addressBalance[event.FromAddress], event.Amount)
+			addressBalance[event.FromAddress] = new(big.Int).Sub(fromBalance, amount)
 			// 添加转入的金额
-			addressBalance[event.ToAddress] = addressBalance[event.ToAddress].Add(addressBalance[event.ToAddress], event.Amount)
+			addressBalance[event.ToAddress] = new(big.Int).Add(toBalance, amount)
 
 			var fromBalanceLog = model.UserBalanceLog{
 				Address:       event.FromAddress,
-				LogType:       2,             // 支出
-				BeforeBalance: big.NewInt(0), // 后面更新余额后根据那个时刻都余额往前推算得出
+				LogType:       2,                      // 支出
+				BeforeBalance: big.NewInt(0).String(), // 后面更新余额后根据那个时刻都余额往前推算得出
 				ChangeBalance: event.Amount,
-				AfterBalance:  big.NewInt(0), // 后面更新余额后根据那个时刻都余额往前推算得出
+				AfterBalance:  big.NewInt(0).String(), // 后面更新余额后根据那个时刻都余额往前推算得出
 				TxHash:        event.TxHash,
 			}
 			var toBalanceLog = model.UserBalanceLog{
 				Address:       event.ToAddress,
-				LogType:       1,             // 收入
-				BeforeBalance: big.NewInt(0), // 后面更新余额后根据那个时刻都余额往前推算得出
+				LogType:       1,                      // 收入
+				BeforeBalance: big.NewInt(0).String(), // 后面更新余额后根据那个时刻都余额往前推算得出
 				ChangeBalance: event.Amount,
-				AfterBalance:  big.NewInt(0), // 后面更新余额后根据那个时刻都余额往前推算得出
+				AfterBalance:  big.NewInt(0).String(), // 后面更新余额后根据那个时刻都余额往前推算得出
 				TxHash:        event.TxHash,
 			}
 

@@ -2,7 +2,6 @@ package model
 
 import (
 	"bossfi-indexer/src/core/db"
-	"math/big"
 	"time"
 )
 
@@ -15,7 +14,7 @@ type TokenEvent struct {
 	EventType   int       `json:"event_type" gorm:"column:event_type"`
 	FromAddress string    `json:"from_address" gorm:"column:from_address"`
 	ToAddress   string    `json:"to_address" gorm:"column:to_address"`
-	Amount      *big.Int  `json:"amount" gorm:"column:amount;type:numeric(78,0)"`
+	Amount      string    `json:"amount" gorm:"column:amount;type:numeric(78,0)"`
 	Confirmed   bool      `json:"confirmed" gorm:"column:confirmed;default:false"`
 	Deleted     bool      `json:"deleted" gorm:"column:deleted;default:false"`
 	CreateTime  time.Time `json:"create_time" gorm:"column:create_time;autoCreateTime"`
@@ -106,9 +105,9 @@ func (m *TokenEventModel) GetLastBlockNumber() int64 {
 }
 
 func (m *TokenEventModel) ConfirmedByIds(ids []int64) error {
-	return db.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("id in (?)", ids[:]).UpdateColumn("confirmed", true).Error
+	return db.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("id in (?)", ids[:]).UpdateColumn("confirmed", true).UpdateColumn("modify_time", time.Now()).Error
 }
 
 func (m *TokenEventModel) DeleteByIds(ids []int64) error {
-	return db.DB.Model(&TokenEvent{}).Where("id in (?)", ids[:]).UpdateColumn("deleted", true).Error
+	return db.DB.Model(&TokenEvent{}).Where("id in (?)", ids[:]).UpdateColumn("deleted", true).UpdateColumn("modify_time", time.Now()).Error
 }

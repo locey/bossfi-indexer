@@ -7,6 +7,7 @@ import (
 	"bossfi-indexer/src/core/log"
 	"context"
 	zazap "go.uber.org/zap"
+	"strconv"
 	"time"
 )
 
@@ -53,6 +54,7 @@ func FinalizedBlock(c context.Context, chainID int) {
 			if err != nil {
 				log.Logger.Error("Unmarshal json failed:" + err.Error())
 			}
+			log.Logger.Info("FinalizedBlock: " + strconv.FormatUint(block.Number, 10))
 		case <-c.Done():
 			log.Logger.Info("Context canceled, FinalizedBlock exiting...")
 			return
@@ -80,7 +82,7 @@ func BlockEvent(c context.Context, chainID int) {
 func ConfirmBlock(c context.Context, chainID int) {
 	tokenEventService := service.NewTokenEventService()
 
-	ticker := time.NewTicker(120 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	for {

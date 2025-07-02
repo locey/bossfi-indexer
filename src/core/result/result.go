@@ -82,6 +82,7 @@ var ErrMsgMap = map[int]map[int]string{
 	},
 }
 
+// @Description 统一响应格式
 type Response struct {
 	TraceId string      `json:"trace_id" example:"a1b2c3d4e5f6g7h8"`       // 链路追踪id
 	Code    int         `json:"code" example:"0" extensions:"x-order=001"` // 状态码

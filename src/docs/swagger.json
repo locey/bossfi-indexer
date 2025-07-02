@@ -4,9 +4,9 @@
         "contact": {}
     },
     "paths": {
-        "/demo/create": {
-            "post": {
-                "description": "用于测试服务器连通性",
+        "/api/v1/user_balance/{address}": {
+            "get": {
+                "description": "根据地址获取用户的Token余额信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -14,19 +14,95 @@
                     "application/json"
                 ],
                 "tags": [
-                    "示例接口"
+                    "用户余额"
                 ],
-                "summary": "创建数据",
+                "summary": "获取用户余额接口",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户地址 (例如: 0x69b821F23bc4E537d82a65593b032B8ad13B6c0c)",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功返回用户余额数据",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.UserBalance"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "数据库中未找到该地址的余额记录",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "数据库查询失败或其他内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.UserBalance": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "balance": {
+                    "type": "string"
+                },
+                "create_time": {
+                    "type": "string"
+                },
+                "deleted": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "modify_time": {
+                    "type": "string"
+                }
+            }
+        },
+        "result.Response": {
+            "description": "统一响应格式",
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "状态码",
+                    "type": "integer",
+                    "x-order": "001",
+                    "example": 0
+                },
+                "msg": {
+                    "description": "消息",
+                    "type": "string",
+                    "x-order": "002",
+                    "example": "OK"
+                },
+                "data": {
+                    "description": "数据",
+                    "x-order": "003"
+                },
+                "trace_id": {
+                    "description": "链路追踪id",
+                    "type": "string",
+                    "example": "a1b2c3d4e5f6g7h8"
                 }
             }
         }

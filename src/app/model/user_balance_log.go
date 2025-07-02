@@ -2,7 +2,6 @@ package model
 
 import (
 	"bossfi-indexer/src/core/db"
-	"math/big"
 	"time"
 )
 
@@ -10,9 +9,9 @@ type UserBalanceLog struct {
 	ID            int64     `json:"id" gorm:"column:id;primaryKey"`
 	Address       string    `json:"address" gorm:"column:address"`
 	LogType       int       `json:"log_type" gorm:"column:log_type"`
-	BeforeBalance *big.Int  `json:"before_balance" gorm:"column:before_balance;type:numeric(78,0)"`
-	ChangeBalance *big.Int  `json:"change_balance" gorm:"column:change_balance;type:numeric(78,0)"`
-	AfterBalance  *big.Int  `json:"after_balance" gorm:"column:after_balance;type:numeric(78,0)"`
+	BeforeBalance string    `json:"before_balance" gorm:"column:before_balance;type:numeric(78,0)"`
+	ChangeBalance string    `json:"change_balance" gorm:"column:change_balance;type:numeric(78,0)"`
+	AfterBalance  string    `json:"after_balance" gorm:"column:after_balance;type:numeric(78,0)"`
 	TxHash        string    `json:"tx_hash" gorm:"column:tx_hash"`
 	Deleted       bool      `json:"deleted" gorm:"column:deleted;default:false"`
 	CreateTime    time.Time `json:"create_time" gorm:"column:create_time;autoCreateTime"`

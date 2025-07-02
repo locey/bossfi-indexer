@@ -97,21 +97,11 @@
 5. 安装 swag 命令 `go install github.com/swaggo/swag/cmd/swag@latest`
 6. 生成swagger文档 `swag init -g src/main.go -o src/docs`
 
-## API 文档(后续增加swagger)
+## Swagger 文档
+- http://localhost:8000/swagger/index.html
 
-示例 根据参数查询 8615565 高度的区块信息
+示例 获取用户余额
 
-- GET http://localhost:8000/api/v1/evm/get_block_by_num/8615565
+- GET http://localhost:8000/api/v1/user_balance/0x69b821F23bc4E537d82a65593b032B8ad13B6c0c
 
-GET /api/v1/demo/:id
-
-POST /api/v1/demo/create
-
-PUT /api/v1/demo/update
-
-DELETE /api/v1/demo/delete/:id
-
-GET /api/v1/demo/list
-
-GET /api/v1/demo/page?page=1&page_size=10
 

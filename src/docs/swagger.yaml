@@ -1,21 +1,74 @@
+definitions:
+  model.UserBalance:
+    properties:
+      address:
+        type: string
+      balance:
+        type: string
+      create_time:
+        type: string
+      deleted:
+        type: boolean
+      id:
+        type: integer
+      modify_time:
+        type: string
+    type: object
+  result.Response:
+    description: 统一响应格式
+    properties:
+      code:
+        description: 状态码
+        example: 0
+        type: integer
+        x-order: "001"
+      data:
+        description: 数据
+        x-order: "003"
+      msg:
+        description: 消息
+        example: OK
+        type: string
+        x-order: "002"
+      trace_id:
+        description: 链路追踪id
+        example: a1b2c3d4e5f6g7h8
+        type: string
+    type: object
 info:
   contact: {}
 paths:
-  /demo/create:
-    post:
+  /api/v1/user_balance/{address}:
+    get:
       consumes:
       - application/json
-      description: 用于测试服务器连通性
+      description: 根据地址获取用户的Token余额信息
+      parameters:
+      - description: '用户地址 (例如: 0x69b821F23bc4E537d82a65593b032B8ad13B6c0c)'
+        in: path
+        name: address
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功返回用户余额数据
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: 创建数据
+            $ref: '#/definitions/model.UserBalance'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/result.Response'
+        "404":
+          description: 数据库中未找到该地址的余额记录
+          schema:
+            $ref: '#/definitions/result.Response'
+        "500":
+          description: 数据库查询失败或其他内部错误
+          schema:
+            $ref: '#/definitions/result.Response'
+      summary: 获取用户余额接口
       tags:
-      - 示例接口
+      - 用户余额
 swagger: "2.0"

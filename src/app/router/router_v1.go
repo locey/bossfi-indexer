@@ -16,18 +16,8 @@ func Bind(r *gin.Engine, ctx *ctx.Context) {
 	v := r.Group("/api/" + config.Conf.App.Version)
 
 	{
-		demoApi := api.NewDemoApi()
-		v.GET("/demo/page", demoApi.Page)
-		v.POST("/demo/create", demoApi.Create)
-		v.GET("/demo/:id", demoApi.GetById)
-		v.PUT("/demo/:id", demoApi.Update)
-		v.DELETE("/demo/:id", demoApi.Delete)
-		v.GET("/demo/list", demoApi.List)
-	}
-
-	{
-		evmApi := api.NewEvmApi()
-		v.GET("/evm/get_block_by_num/:block_num", evmApi.GetBlockByNum)
+		userBalanceApi := api.NewUserBalanceApi()
+		v.GET("/user_balance/:address", userBalanceApi.GetBalanceByAddress)
 	}
 
 }
