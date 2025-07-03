@@ -44,6 +44,7 @@ func (s *UserBalanceApi) GetBalanceByAddress(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			result.Error(c, result.DBNotExist)
+			return
 		}
 		result.Error(c, result.DBQueryFailed)
 		return
