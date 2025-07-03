@@ -47,6 +47,7 @@ docker rm "$IMAGE_NAME" >/dev/null 2>&1 || true
 echo "4️⃣ 启动容器..."
 docker run -d \
   --name "$IMAGE_NAME" \
+  --network bossfi-backend_default \
   -p $PORT:$PORT \
   -v /opt/bossfi/bossfi-indexer-configs/config.toml:/data/configs/config.toml \
   --restart=always \
