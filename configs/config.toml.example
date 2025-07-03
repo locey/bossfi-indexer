@@ -22,6 +22,7 @@ idle_timeout = 180
 [[chains]]
 name = "sepolia"
 chain_id = 11155111
+#alchemy接口存在goethereum解析非标准字段问题，需要使用infura接口
 endpoint = "https://sepolia.infura.io/v3/xxx"
 boss_token_address = "0x02061c94109EFF3A02BA09D24f7932692331ab96"
 boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"

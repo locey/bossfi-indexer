@@ -82,7 +82,7 @@ func BlockEvent(c context.Context, chainID int) {
 func ConfirmBlock(c context.Context, chainID int) {
 	tokenEventService := service.NewTokenEventService()
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 
 	for {

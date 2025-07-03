@@ -2,8 +2,10 @@ package config
 
 import (
 	"github.com/BurntSushi/toml"
+	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 var Conf *Config
@@ -57,9 +59,24 @@ type ChainConfig struct {
 
 // InitConfig 初始化配置
 func InitConfig(configFile string) *Config {
-	tomlFile, err := filepath.Abs(getConfigAbPath() + "/" + configFile)
-	if err != nil {
-		panic("read toml file err: " + err.Error())
+	// 尝试从以下路径顺序加载：
+	// 1. 当前工作目录下的 configs/ 子目录
+	// 2. 可执行文件所在目录的 configs/ 子目录
+	paths := []string{
+		filepath.Join("./configs", configFile),
+		filepath.Join(filepath.Dir(os.Args[0]), "configs", configFile),
+	}
+	var tomlFile string
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			tomlFile = path
+			break
+		}
+	}
+
+	if tomlFile == "" {
+		// 没有找到配置文件，请检查以下两个目录
+		panic("config file not found, please check the following directories:" + strings.Join(paths, ","))
 	}
 
 	conf := Config{}

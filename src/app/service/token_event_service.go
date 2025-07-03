@@ -201,7 +201,7 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 		return
 	}
 	if len(confirmBlockList) == 0 {
-		log.Logger.Info("No unconfirmed blocks found.")
+		log.Logger.Info("No unconfirmed blocks found")
 		return
 	}
 
