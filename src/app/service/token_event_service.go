@@ -224,7 +224,7 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 	var rorgBlockEvents []*model.TokenEvent
 	var deleteEventIds []int64
 	// 可以确认的区块事件
-	var confirmedEventIds []int64
+	var confirmedEvents []*model.TokenEvent
 	// 是否重组
 	var rorg bool
 
@@ -235,17 +235,13 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 			rorgBlockEvents = append(rorgBlockEvents, event)
 			deleteEventIds = append(deleteEventIds, event.ID)
 		} else {
-			confirmedEventIds = append(confirmedEventIds, event.ID)
+			confirmedEvents = append(confirmedEvents, event)
 		}
 	}
 
 	// 在开启事务前先把已经确认的区块直接更新掉
-	if len(confirmedEventIds) > 0 {
-		err = s.dao.ConfirmedByIds(confirmedEventIds)
-		if err != nil {
-			log.Logger.Error("confirmedByIds failed!", zazap.Error(err))
-			return
-		}
+	if len(confirmedEvents) > 0 {
+		s.ConfirmBlockEvents(confirmedEvents)
 	}
 
 	// 计算出要回滚区块的 账户>金额数量
@@ -302,6 +298,76 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 	// 提交事务
 	tx.Commit()
 	log.Logger.Info("ConfirmTokenEvent done")
+}
+
+func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEvent) {
+	tx := ctx.Ctx.DB.Begin()
+
+	userBalanceDao := &model.UserBalanceModel{DB: tx}
+
+	var pointsLogs []*model.UserPointsLog
+	confirmedEventIds := make([]int64, len(confirmedEvents))
+	for i, event := range confirmedEvents {
+		confirmedEventIds[i] = event.ID
+		// 更新积分
+		points := new(big.Int)
+		if _, ok := points.SetString(event.Amount, 10); !ok {
+			log.Logger.Error("confirm event invalid number", zazap.String("amount", event.Amount))
+			tx.Rollback()
+			return
+		}
+
+		// 对已确认的区块事件to用户增加积分
+		err := userBalanceDao.AddPoints(event.ToAddress, points)
+		if err != nil {
+			log.Logger.Error("AddPoints failed!", zazap.Error(err))
+			tx.Rollback()
+			return
+		}
+
+		nowUserPoints, err := userBalanceDao.GetByAddress(event.ToAddress)
+		if err != nil {
+			log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
+			tx.Rollback()
+			return
+		}
+
+		afterPoints := new(big.Int)
+		if _, ok := afterPoints.SetString(nowUserPoints.Points, 10); !ok {
+			log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPoints.Points))
+			tx.Rollback()
+			return
+		}
+
+		pointLog := &model.UserPointsLog{
+			Address:      event.ToAddress,
+			LogType:      model.PointsTypeIncome,
+			BeforePoints: new(big.Int).Sub(afterPoints, points).String(),
+			ChangePoints: event.Amount,
+			AfterPoints:  nowUserPoints.Points,
+			TxHash:       event.TxHash,
+		}
+		pointsLogs = append(pointsLogs, pointLog)
+	}
+
+	tokenEventDao := &model.TokenEventModel{DB: tx}
+	err := tokenEventDao.ConfirmedByIds(confirmedEventIds)
+	if err != nil {
+		log.Logger.Error("confirmedByIds failed!", zazap.Error(err))
+		tx.Rollback()
+		return
+	}
+
+	// 记录积分流水
+	userPointsLogModel := &model.UserPointsLogModel{DB: tx}
+	err = userPointsLogModel.CreateBatch(pointsLogs)
+	if err != nil {
+		log.Logger.Error("Create points log failed!", zazap.Error(err))
+		tx.Rollback()
+		return
+	}
+
+	tx.Commit()
 }
 
 func ParseTokenEvents(logs []types.Log) []*model.TokenEvent {

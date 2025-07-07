@@ -42,7 +42,7 @@ func (m *TokenEventModel) Create(event *TokenEvent) error {
 // GetByTxHashAndIndex 查询单条记录
 func (m *TokenEventModel) GetByTxHashAndIndex(txHash string, index int) (*TokenEvent, error) {
 	var event TokenEvent
-	err := m.DB.Where("tx_hash = ? AND log_index = ?", txHash, index).First(&event).Error
+	err := m.DB.Model(&TokenEvent{}).Where("tx_hash = ? AND log_index = ?", txHash, index).First(&event).Error
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (m *TokenEventModel) GetByTxHashAndIndex(txHash string, index int) (*TokenE
 // ListByBlockNumber 查询区块中的事件
 func (m *TokenEventModel) ListByBlockNumber(blockNumber int64) ([]*TokenEvent, error) {
 	var events []*TokenEvent
-	err := m.DB.Where("block_number = ?", blockNumber).Find(&events).Error
+	err := m.DB.Model(&TokenEvent{}).Where("block_number = ?", blockNumber).Find(&events).Error
 	if err != nil {
 		return nil, err
 	}
