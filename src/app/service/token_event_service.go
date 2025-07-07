@@ -4,6 +4,7 @@ import (
 	"bossfi-indexer/src/app/model"
 	"bossfi-indexer/src/core/chainclient/evm"
 	"bossfi-indexer/src/core/ctx"
+	"bossfi-indexer/src/core/db"
 	"bossfi-indexer/src/core/log"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,7 +36,7 @@ type MinterChangedEvent struct {
 
 func NewTokenEventService() *TokenEventService {
 	return &TokenEventService{
-		dao: &model.TokenEventModel{},
+		dao: &model.TokenEventModel{DB: db.DB},
 	}
 }
 

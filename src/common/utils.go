@@ -1,6 +1,7 @@
 package common
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 )
@@ -25,4 +26,9 @@ func GetCurrentAbPath() string {
 
 func GetConfigAbPath() string {
 	return GetCurrentAbPath() + "/configs"
+}
+
+// IsDev 判断是否是开发环境
+func IsDev() bool {
+	return os.Getenv("DEV_DEBUG") == "true"
 }

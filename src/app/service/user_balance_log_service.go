@@ -2,6 +2,7 @@ package service
 
 import (
 	"bossfi-indexer/src/app/model"
+	"bossfi-indexer/src/core/db"
 )
 
 type UserBalanceLogService struct {
@@ -10,7 +11,7 @@ type UserBalanceLogService struct {
 
 func NewUserBalanceLogService() *UserBalanceLogService {
 	return &UserBalanceLogService{
-		dao: &model.UserBalanceLogModel{},
+		dao: &model.UserBalanceLogModel{DB: db.DB},
 	}
 }
 

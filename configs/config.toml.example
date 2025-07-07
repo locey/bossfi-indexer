@@ -19,6 +19,11 @@ max_idle = 10
 max_active = 0
 idle_timeout = 180
 
+[kafka]
+brokers = ["kafka1:9092"]
+topic = "bossfi-indexer"
+group_id = "bossfi-group"
+
 [[chains]]
 name = "sepolia"
 chain_id = 11155111

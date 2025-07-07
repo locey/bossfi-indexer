@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bossfi-indexer/src/core/db"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -22,17 +22,19 @@ func (UserBalanceLog) TableName() string {
 	return "bii_user_balance_log"
 }
 
-type UserBalanceLogModel struct{}
+type UserBalanceLogModel struct {
+	DB *gorm.DB
+}
 
 // Create 创建记录
 func (m *UserBalanceLogModel) Create(log *UserBalanceLog) error {
-	return db.DB.Create(log).Error
+	return m.DB.Create(log).Error
 }
 
 // GetByID 查询单条记录
 func (m *UserBalanceLogModel) GetByID(id int64) (*UserBalanceLog, error) {
 	var log UserBalanceLog
-	err := db.DB.Scopes(NotDeleted).Where("id = ?", id).First(&log).Error
+	err := m.DB.Scopes(NotDeleted).Where("id = ?", id).First(&log).Error
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +44,7 @@ func (m *UserBalanceLogModel) GetByID(id int64) (*UserBalanceLog, error) {
 // ListByAddress 查询某个地址的所有日志
 func (m *UserBalanceLogModel) ListByAddress(address string) ([]*UserBalanceLog, error) {
 	var logs []*UserBalanceLog
-	err := db.DB.Scopes(NotDeleted).Where("address = ?", address).Find(&logs).Error
+	err := m.DB.Scopes(NotDeleted).Where("address = ?", address).Find(&logs).Error
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func (m *UserBalanceLogModel) Page(page, pageSize int) ([]*UserBalanceLog, int64
 	var logs []*UserBalanceLog
 	var total int64
 
-	res := db.DB.Scopes(NotDeleted).Model(&UserBalanceLog{})
+	res := m.DB.Scopes(NotDeleted).Model(&UserBalanceLog{})
 
 	if err := res.Count(&total).Error; err != nil {
 		return nil, 0, err

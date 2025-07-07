@@ -1,13 +1,13 @@
 package db
 
 import (
+	"bossfi-indexer/src/common"
 	"bossfi-indexer/src/core/config"
 	"bossfi-indexer/src/core/log"
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"os"
 )
 
 func InitPgsql() *gorm.DB {
@@ -21,7 +21,7 @@ func InitPgsql() *gorm.DB {
 	)
 
 	gormConfig := &gorm.Config{}
-	if os.Getenv("GORM_DEBUG") == "true" {
+	if common.IsDev() {
 		gormConfig.Logger = logger.Default.LogMode(logger.Info)
 	}
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)

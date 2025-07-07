@@ -9,6 +9,7 @@ import (
 	"bossfi-indexer/src/core/db"
 	"bossfi-indexer/src/core/gin/router"
 	"bossfi-indexer/src/core/log"
+	"bossfi-indexer/src/core/mq"
 	"context"
 	"fmt"
 	"go.uber.org/zap"
@@ -32,6 +33,8 @@ func Start(configFile string) {
 	initPprof()
 	// 初始化数据库/Redis
 	initDB()
+	// 初始化MQ
+	initMq()
 	// 初始化区块链客户端
 	initChainClient()
 	// 启动同步服务
@@ -42,6 +45,12 @@ func Start(configFile string) {
 	gracefulShutdown(cancel)
 	// 阻塞主 goroutine
 	select {}
+}
+
+func initMq() {
+	mq.InitKafka()
+	// 启动Kafka消费者
+	//go consumer.StartKafkaConsumer()
 }
 
 func initConfig(configFile string) {
@@ -107,6 +116,9 @@ func gracefulShutdown(cancel context.CancelFunc) {
 
 	<-sigChan
 	log.Logger.Info("Received shutdown signal, shutting down gracefully...")
+
+	// 关闭Kafka连接
+	mq.CloseKafka()
 
 	// 触发 context cancel，通知所有依赖该 context 的后台协程退出
 	cancel()

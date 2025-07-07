@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bossfi-indexer/src/core/db"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -30,17 +30,19 @@ func (TokenEvent) TableName() string {
 	return "bii_token_event"
 }
 
-type TokenEventModel struct{}
+type TokenEventModel struct {
+	DB *gorm.DB
+}
 
 // Create 创建记录
 func (m *TokenEventModel) Create(event *TokenEvent) error {
-	return db.DB.Create(event).Error
+	return m.DB.Create(event).Error
 }
 
 // GetByTxHashAndIndex 查询单条记录
 func (m *TokenEventModel) GetByTxHashAndIndex(txHash string, index int) (*TokenEvent, error) {
 	var event TokenEvent
-	err := db.DB.Where("tx_hash = ? AND log_index = ?", txHash, index).First(&event).Error
+	err := m.DB.Where("tx_hash = ? AND log_index = ?", txHash, index).First(&event).Error
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +52,7 @@ func (m *TokenEventModel) GetByTxHashAndIndex(txHash string, index int) (*TokenE
 // ListByBlockNumber 查询区块中的事件
 func (m *TokenEventModel) ListByBlockNumber(blockNumber int64) ([]*TokenEvent, error) {
 	var events []*TokenEvent
-	err := db.DB.Where("block_number = ?", blockNumber).Find(&events).Error
+	err := m.DB.Where("block_number = ?", blockNumber).Find(&events).Error
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +62,7 @@ func (m *TokenEventModel) ListByBlockNumber(blockNumber int64) ([]*TokenEvent, e
 // ListAll 查询所有事件
 func (m *TokenEventModel) ListAll() ([]*TokenEvent, error) {
 	var events []*TokenEvent
-	err := db.DB.Find(&events).Error
+	err := m.DB.Find(&events).Error
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,7 @@ func (m *TokenEventModel) Page(page, pageSize int) ([]*TokenEvent, int64, error)
 	var events []*TokenEvent
 	var total int64
 
-	res := db.DB.Model(&TokenEvent{})
+	res := m.DB.Model(&TokenEvent{})
 
 	if err := res.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -87,7 +89,7 @@ func (m *TokenEventModel) Page(page, pageSize int) ([]*TokenEvent, int64, error)
 
 func (m *TokenEventModel) GetEarlyUnConfirmBlock(finalizedNumber uint64) ([]*TokenEvent, error) {
 	var events []*TokenEvent
-	err := db.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("block_number < ?", finalizedNumber).Where("confirmed = ?", false).Order("block_number ASC").Find(&events).Error
+	err := m.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("block_number < ?", finalizedNumber).Where("confirmed = ?", false).Order("block_number ASC").Find(&events).Error
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +99,7 @@ func (m *TokenEventModel) GetEarlyUnConfirmBlock(finalizedNumber uint64) ([]*Tok
 
 func (m *TokenEventModel) GetLastBlockNumber() int64 {
 	var blockNumber int64
-	err := db.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Select("block_number").Order("id DESC").Limit(1).Pluck("block_number", &blockNumber).Error
+	err := m.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Select("block_number").Order("id DESC").Limit(1).Pluck("block_number", &blockNumber).Error
 	if err != nil {
 		return 0
 	}
@@ -105,9 +107,9 @@ func (m *TokenEventModel) GetLastBlockNumber() int64 {
 }
 
 func (m *TokenEventModel) ConfirmedByIds(ids []int64) error {
-	return db.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("id in (?)", ids[:]).UpdateColumn("confirmed", true).UpdateColumn("modify_time", time.Now()).Error
+	return m.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Where("id in (?)", ids[:]).UpdateColumn("confirmed", true).UpdateColumn("modify_time", time.Now()).Error
 }
 
 func (m *TokenEventModel) DeleteByIds(ids []int64) error {
-	return db.DB.Model(&TokenEvent{}).Where("id in (?)", ids[:]).UpdateColumn("deleted", true).UpdateColumn("modify_time", time.Now()).Error
+	return m.DB.Model(&TokenEvent{}).Where("id in (?)", ids[:]).UpdateColumn("deleted", true).UpdateColumn("modify_time", time.Now()).Error
 }

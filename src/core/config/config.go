@@ -15,6 +15,7 @@ type Config struct {
 	Monitor MonitorConfig
 	Pgsql   PgsqlConfig
 	Redis   RedisConfig
+	Kafka   KafkaConfig
 	Chains  []ChainConfig
 }
 
@@ -46,6 +47,12 @@ type RedisConfig struct {
 	MaxIdle     int    `toml:"max_idle" json:"maxIdle"`
 	MaxActive   int    `toml:"max_active" json:"maxActive"`
 	IdleTimeout int    `toml:"idle_timeout" json:"idleTimeout"`
+}
+
+type KafkaConfig struct {
+	Brokers []string `toml:"brokers" json:"brokers"`
+	Topic   string   `toml:"topic" json:"topic"`
+	GroupID string   `toml:"group_id" json:"group_id"`
 }
 
 type ChainConfig struct {
