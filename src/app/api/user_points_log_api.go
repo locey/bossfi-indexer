@@ -8,13 +8,13 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserPointLogApi struct {
-	svc *service.UserPointLogService
+type UserPointsLogApi struct {
+	svc *service.UserPointsLogService
 }
 
-func NewUserPointLogApi() *UserPointLogApi {
-	return &UserPointLogApi{
-		svc: service.NewUserPointLogService(),
+func NewUserPointsLogApi() *UserPointsLogApi {
+	return &UserPointsLogApi{
+		svc: service.NewUserPointsLogService(),
 	}
 }
 
@@ -25,12 +25,12 @@ func NewUserPointLogApi() *UserPointLogApi {
 // @Accept       json
 // @Produce      json
 // @Param        address  path  string  true  "用户地址"
-// @Success      200  {object}  []model.UserPointLog  "成功返回用户积分日志数据"
+// @Success      200  {object}  []model.UserPointsLog  "成功返回用户积分日志数据"
 // @Failure      400  {object}  result.Response  "参数错误"
 // @Failure      404  {object}  result.Response  "数据库中未找到该地址的日志记录"
 // @Failure      500  {object}  result.Response  "数据库查询失败或其他内部错误"
-// @Router       /api/v1/user_point_log/{address} [GET]
-func (s *UserPointLogApi) ListByAddress(c *gin.Context) {
+// @Router       /api/v1/user_points_log/{address} [GET]
+func (s *UserPointsLogApi) ListByAddress(c *gin.Context) {
 	address := c.Params.ByName("address")
 	if address == "" {
 		result.Error(c, result.InvalidParameter)

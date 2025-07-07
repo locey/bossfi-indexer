@@ -20,4 +20,9 @@ func Bind(r *gin.Engine, ctx *ctx.Context) {
 		v.GET("/user_balance/:address", userBalanceApi.GetBalanceByAddress)
 	}
 
+	{
+		pointLogApi := api.NewUserPointsLogApi()
+		v.GET("/user_points_log/:address", pointLogApi.ListByAddress)
+	}
+
 }

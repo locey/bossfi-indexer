@@ -53,6 +53,59 @@
                     }
                 }
             }
+        },
+        "/api/v1/user_points_log/{address}": {
+            "get": {
+                "description": "根据地址获取用户的积分变更记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户积分"
+                ],
+                "summary": "获取用户积分日志接口",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户地址",
+                        "name": "address",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功返回用户积分日志数据",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.UserPointsLog"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "数据库中未找到该地址的日志记录",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "数据库查询失败或其他内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/result.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -75,6 +128,44 @@
                     "type": "integer"
                 },
                 "modify_time": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.UserPointsLog": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "after_points": {
+                    "type": "string"
+                },
+                "before_points": {
+                    "type": "string"
+                },
+                "change_points": {
+                    "type": "string"
+                },
+                "create_time": {
+                    "type": "string"
+                },
+                "deleted": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "log_type": {
+                    "type": "integer"
+                },
+                "modify_time": {
+                    "type": "string"
+                },
+                "tx_hash": {
                     "type": "string"
                 }
             }

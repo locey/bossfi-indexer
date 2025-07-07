@@ -13,6 +13,31 @@ definitions:
         type: integer
       modify_time:
         type: string
+      points:
+        type: string
+    type: object
+  model.UserPointsLog:
+    properties:
+      address:
+        type: string
+      after_points:
+        type: string
+      before_points:
+        type: string
+      change_points:
+        type: string
+      create_time:
+        type: string
+      deleted:
+        type: boolean
+      id:
+        type: integer
+      log_type:
+        type: integer
+      modify_time:
+        type: string
+      tx_hash:
+        type: string
     type: object
   result.Response:
     description: 统一响应格式
@@ -71,4 +96,39 @@ paths:
       summary: 获取用户余额接口
       tags:
       - 用户余额
+  /api/v1/user_points_log/{address}:
+    get:
+      consumes:
+      - application/json
+      description: 根据地址获取用户的积分变更记录
+      parameters:
+      - description: 用户地址
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回用户积分日志数据
+          schema:
+            items:
+              $ref: '#/definitions/model.UserPointsLog'
+            type: array
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/result.Response'
+        "404":
+          description: 数据库中未找到该地址的日志记录
+          schema:
+            $ref: '#/definitions/result.Response'
+        "500":
+          description: 数据库查询失败或其他内部错误
+          schema:
+            $ref: '#/definitions/result.Response'
+      summary: 获取用户积分日志接口
+      tags:
+      - 用户积分
 swagger: "2.0"
