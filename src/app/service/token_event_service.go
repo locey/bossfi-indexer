@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -48,8 +49,8 @@ func (s *TokenEventService) GetEarlyUnConfirmBlock(finalizedNumber uint64) ([]*m
 }
 
 // GetLastBlockNumber 获取最后一条区块高度
-func (s *TokenEventService) GetLastBlockNumber() int64 {
-	return s.dao.GetLastBlockNumber()
+func (s *TokenEventService) GetLastBlockNumber(chainID int) int64 {
+	return s.dao.GetLastBlockNumber(chainID)
 }
 
 // Create 创建记录
@@ -81,11 +82,44 @@ func (s *TokenEventService) Page(page, pageSize int) ([]*model.TokenEvent, int64
 func (s *TokenEventService) SyncTokenEvent(chainID int) {
 	evmAdapter := ctx.GetClient(chainID).(*evm.Evm)
 
-	lastNumber := s.GetLastBlockNumber()
+	lastNumber := s.GetLastBlockNumber(chainID) // 从数据库中读取
 	if lastNumber == 0 {
 		lastNumber = evmAdapter.ChainConfig().StartBlockNumber
 	} else {
 		lastNumber += 1
+	}
+
+	// 延迟六个区块，可从配置中更改
+	latestBlockNum, err := evmAdapter.GetLastBlockNumber()
+	if err != nil {
+		log.Logger.Error("Get most recent blockNum err.", zazap.Error(err))
+		return
+	}
+	// todo: 创建一个表，记录每条链最新同步的区块号
+	if lastNumber >= int64(latestBlockNum)-int64(evmAdapter.ChainConfig().BlockInterval) {
+		log.Logger.Info(fmt.Sprintf("chain[%d] [lastNumber:%d] [latestBlockNum:%d] should wait at least %d blocks",
+			chainID, lastNumber, latestBlockNum, evmAdapter.ChainConfig().BlockInterval))
+		time.Sleep(time.Duration(evmAdapter.ChainConfig().WaitTime) * time.Second)
+		return
+	}
+
+	// 更新最近同步区块高度
+	if err := s.dao.DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "chain_id"}}, // 冲突字段
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"last_block_num": gorm.Expr("EXCLUDED.last_block_num"),
+			"last_sync_time": time.Now(),
+			"modify_time":    time.Now(),
+		}),
+	}).Create(&model.ChainIndexStatus{
+		ChainID:          chainID,
+		LastSyncBlockNum: int64(latestBlockNum),
+		LastSyncTime:     time.Now(),
+		CreateTime:       time.Now(),
+		ModifyTime:       time.Now(),
+	}).Error; err != nil {
+		log.Logger.Error("Update last sync block num failed!", zazap.Error(err))
+		return
 	}
 
 	// 根据最早和最后区块高度拉取所有该合约的事件
@@ -96,6 +130,7 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 	}
 	if len(logs) == 0 {
 		log.Logger.Info("GetLogs is empty")
+		time.Sleep(time.Duration(evmAdapter.ChainConfig().WaitTime) * time.Second)
 		return
 	}
 
@@ -308,51 +343,51 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEvent) {
 	tx := ctx.Ctx.DB.Begin()
 
-	userBalanceDao := &model.UserBalanceModel{DB: tx}
+	// userBalanceDao := &model.UserBalanceModel{DB: tx}
 
-	var pointsLogs []*model.UserPointsLog
+	// var pointsLogs []*model.UserPointsLog
 	confirmedEventIds := make([]int64, len(confirmedEvents))
 	for i, event := range confirmedEvents {
 		confirmedEventIds[i] = event.ID
-		// 更新积分
-		points := new(big.Int)
-		if _, ok := points.SetString(event.Amount, 10); !ok {
-			log.Logger.Error("confirm event invalid number", zazap.String("amount", event.Amount))
-			tx.Rollback()
-			return
-		}
+		// // 更新积分
+		// points := new(big.Int)
+		// if _, ok := points.SetString(event.Amount, 10); !ok {
+		// 	log.Logger.Error("confirm event invalid number", zazap.String("amount", event.Amount))
+		// 	tx.Rollback()
+		// 	return
+		// }
 
-		// 对已确认的区块事件to用户增加积分
-		err := userBalanceDao.AddPoints(event.ToAddress, points)
-		if err != nil {
-			log.Logger.Error("AddPoints failed!", zazap.Error(err))
-			tx.Rollback()
-			return
-		}
+		// // 对已确认的区块事件to用户增加积分
+		// err := userBalanceDao.AddPoints(event.ToAddress, points)
+		// if err != nil {
+		// 	log.Logger.Error("AddPoints failed!", zazap.Error(err))
+		// 	tx.Rollback()
+		// 	return
+		// }
 
-		nowUserPoints, err := userBalanceDao.GetByAddress(event.ToAddress)
-		if err != nil {
-			log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
-			tx.Rollback()
-			return
-		}
+		// nowUserPoints, err := userBalanceDao.GetByAddress(event.ToAddress)
+		// if err != nil {
+		// 	log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
+		// 	tx.Rollback()
+		// 	return
+		// }
 
-		afterPoints := new(big.Int)
-		if _, ok := afterPoints.SetString(nowUserPoints.Points, 10); !ok {
-			log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPoints.Points))
-			tx.Rollback()
-			return
-		}
+		// afterPoints := new(big.Int)
+		// if _, ok := afterPoints.SetString(nowUserPoints.Points, 10); !ok {
+		// 	log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPoints.Points))
+		// 	tx.Rollback()
+		// 	return
+		// }
 
-		pointLog := &model.UserPointsLog{
-			Address:      event.ToAddress,
-			LogType:      model.PointsTypeIncome,
-			BeforePoints: new(big.Int).Sub(afterPoints, points).String(),
-			ChangePoints: event.Amount,
-			AfterPoints:  nowUserPoints.Points,
-			TxHash:       event.TxHash,
-		}
-		pointsLogs = append(pointsLogs, pointLog)
+		// pointLog := &model.UserPointsLog{
+		// 	Address:      event.ToAddress,
+		// 	LogType:      model.PointsTypeIncome,
+		// 	BeforePoints: new(big.Int).Sub(afterPoints, points).String(),
+		// 	ChangePoints: event.Amount,
+		// 	AfterPoints:  nowUserPoints.Points,
+		// 	TxHash:       event.TxHash,
+		// }
+		// pointsLogs = append(pointsLogs, pointLog)
 	}
 
 	tokenEventDao := &model.TokenEventModel{DB: tx}
@@ -364,13 +399,13 @@ func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEve
 	}
 
 	// 记录积分流水
-	userPointsLogModel := &model.UserPointsLogModel{DB: tx}
-	err = userPointsLogModel.CreateBatch(pointsLogs)
-	if err != nil {
-		log.Logger.Error("Create points log failed!", zazap.Error(err))
-		tx.Rollback()
-		return
-	}
+	// userPointsLogModel := &model.UserPointsLogModel{DB: tx}
+	// err = userPointsLogModel.CreateBatch(pointsLogs)
+	// if err != nil {
+	// 	log.Logger.Error("Create points log failed!", zazap.Error(err))
+	// 	tx.Rollback()
+	// 	return
+	// }
 
 	tx.Commit()
 }

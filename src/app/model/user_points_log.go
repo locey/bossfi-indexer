@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+func init() {
+	RegisterModel(&UserPointsLog{})
+}
+
 type UserPointsLog struct {
 	ID           int64     `json:"id" gorm:"column:id;primaryKey"`
 	Address      string    `json:"address" gorm:"column:address;type:varchar(42)"`

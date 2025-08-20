@@ -1,12 +1,16 @@
 package evm
 
 import (
+	"context"
+	"encoding/json"
+	"math/big"
+	"os"
+
 	"bossfi-indexer/src/common/abi/tokenabi"
 	"bossfi-indexer/src/core/chainclient/domain"
 	"bossfi-indexer/src/core/config"
 	"bossfi-indexer/src/core/log"
-	"context"
-	"encoding/json"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,8 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	zazap "go.uber.org/zap"
-	"math/big"
-	"os"
 )
 
 type Evm struct {
@@ -86,6 +88,14 @@ func (c *Evm) GetLogs(fromBlock *big.Int, toBlock *big.Int, contractAddress stri
 	}
 
 	return logs, nil
+}
+
+func (c *Evm) GetLastBlockNumber() (uint64, error) {
+	blockNum, err := c.client.BlockNumber(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	return blockNum, nil
 }
 
 // LoadABI 从文件加载 ABI

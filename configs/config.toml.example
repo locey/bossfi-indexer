@@ -32,6 +32,8 @@ endpoint = "https://sepolia.infura.io/v3/xxx"
 boss_token_address = "0x02061c94109EFF3A02BA09D24f7932692331ab96"
 boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
 start_block_number = 8545406
+block_interval = 6
+wait_time = 10
 [[chains]]
 name = "mainnet"
 chain_id = 1
@@ -39,6 +41,8 @@ endpoint = "https://sepolia.infura.io/v3/xxx"
 boss_token_address = "0x02061c94109EFF3A02BA09D24f7932692331ab96"
 boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
 start_block_number = 8545406
+block_interval = 6
+wait_time = 10
 
 [monitor]
 pprof_enable = true

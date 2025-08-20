@@ -1,10 +1,12 @@
 package db
 
 import (
+	"fmt"
+
 	"bossfi-indexer/src/common"
 	"bossfi-indexer/src/core/config"
 	"bossfi-indexer/src/core/log"
-	"fmt"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

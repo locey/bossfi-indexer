@@ -12,3 +12,13 @@ type Model[T any] interface {
 func NotDeleted(db *gorm.DB) *gorm.DB {
 	return db.Where("deleted = false")
 }
+
+var allModels []interface{}
+
+func RegisterModel(m interface{}) {
+	allModels = append(allModels, m)
+}
+
+func GetAllModels() []interface{} {
+	return allModels
+}

@@ -1,9 +1,14 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
+
+func init() {
+	RegisterModel(&TokenEvent{})
+}
 
 type TokenEvent struct {
 	ID          int64     `json:"id" gorm:"column:id;primaryKey"`
@@ -97,10 +102,9 @@ func (m *TokenEventModel) GetEarlyUnConfirmBlock(finalizedNumber uint64) ([]*Tok
 	return events, nil
 }
 
-func (m *TokenEventModel) GetLastBlockNumber() int64 {
+func (m *TokenEventModel) GetLastBlockNumber(chainID int) int64 {
 	var blockNumber int64
-	err := m.DB.Model(&TokenEvent{}).Scopes(NotDeleted).Select("block_number").Order("id DESC").Limit(1).Pluck("block_number", &blockNumber).Error
-	if err != nil {
+	if err := m.DB.Model(&ChainIndexStatus{}).Select("last_block_num").Where("chain_id = ?", chainID).Scan(&blockNumber).Error; err != nil {
 		return 0
 	}
 	return blockNumber

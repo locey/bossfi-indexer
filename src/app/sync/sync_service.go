@@ -1,14 +1,16 @@
 package sync
 
 import (
+	"context"
+	"strconv"
+	"time"
+
 	"bossfi-indexer/src/app/service"
 	"bossfi-indexer/src/core/chainclient/evm"
 	"bossfi-indexer/src/core/ctx"
 	"bossfi-indexer/src/core/log"
-	"context"
+
 	zazap "go.uber.org/zap"
-	"strconv"
-	"time"
 )
 
 type Sync struct{}
@@ -65,15 +67,15 @@ func FinalizedBlock(c context.Context, chainID int) {
 func BlockEvent(c context.Context, chainID int) {
 	tokenEventService := service.NewTokenEventService()
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	// ticker := time.NewTicker(10 * time.Second)
+	// defer ticker.Stop()
 	for {
 		select {
-		case <-ticker.C:
-			tokenEventService.SyncTokenEvent(chainID)
 		case <-c.Done():
 			log.Logger.Info("Context canceled, ConfirmBlock exiting...")
 			return
+		default:
+			tokenEventService.SyncTokenEvent(chainID)
 		}
 	}
 }

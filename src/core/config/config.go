@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/BurntSushi/toml"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 var Conf *Config
@@ -62,6 +63,8 @@ type ChainConfig struct {
 	BossTokenAddress   string `toml:"boss_token_address" json:"bossTokenAddress"`
 	BossStakingAddress string `toml:"boss_staking_address" json:"bossStakingAddress"`
 	StartBlockNumber   int64  `toml:"start_block_number" json:"startBlockNumber"`
+	BlockInterval      int    `toml:"block_interval" json:"BlockInterval"` // 同步区块时需等待的区块数量
+	WaitTime           int    `toml:"wait_time" json:"WaitTime"`           // 同步区块时需等待的时间
 }
 
 // InitConfig 初始化配置

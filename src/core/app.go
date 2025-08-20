@@ -1,6 +1,15 @@
 package core
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	appRouter "bossfi-indexer/src/app/router"
 	"bossfi-indexer/src/app/sync"
 	"bossfi-indexer/src/core/chainclient"
@@ -10,15 +19,8 @@ import (
 	"bossfi-indexer/src/core/gin/router"
 	"bossfi-indexer/src/core/log"
 	"bossfi-indexer/src/core/mq"
-	"context"
-	"fmt"
+
 	"go.uber.org/zap"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func Start(configFile string) {
@@ -79,6 +81,8 @@ func initLog() {
 func initDB() {
 	ctx.Ctx.DB = db.InitPgsql()
 	ctx.Ctx.Redis = db.InitRedis()
+	// migrate, todo:这里可以优化
+	// ctx.Ctx.DB.AutoMigrate(model.GetAllModels()...)
 }
 
 func initChainClient() {
