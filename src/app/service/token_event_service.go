@@ -1,20 +1,22 @@
 package service
 
 import (
+	"errors"
+	"math/big"
+	"time"
+
 	"bossfi-indexer/src/app/model"
 	"bossfi-indexer/src/core/chainclient/evm"
 	"bossfi-indexer/src/core/ctx"
 	"bossfi-indexer/src/core/db"
 	"bossfi-indexer/src/core/log"
-	"errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	zazap "go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"math/big"
-	"time"
 )
 
 type TokenEventService struct {
@@ -152,7 +154,7 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 			return
 		}
 
-		for i := 0; i < len(balanceLogsMap[addr]); i++ {
+		for i := len(balanceLogsMap[addr]) - 1; i >= 0; i-- {
 			balanceLogsMap[addr][i].AfterBalance = currentBalance.String()
 
 			changeBalance := new(big.Int)
@@ -160,6 +162,9 @@ func (s *TokenEventService) SyncTokenEvent(chainID int) {
 				log.Logger.Error("invalid number", zazap.String("changeBalance", balanceLogsMap[addr][i].ChangeBalance))
 				tx.Rollback()
 				return
+			}
+			if balanceLogsMap[addr][i].LogType == 2 { // 支出
+				changeBalance = new(big.Int).Mul(changeBalance, big.NewInt(-1))
 			}
 			currentBalance = new(big.Int).Sub(currentBalance, changeBalance)
 			balanceLogsMap[addr][i].BeforeBalance = currentBalance.String()
