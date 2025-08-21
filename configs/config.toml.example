@@ -34,6 +34,7 @@ boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
 start_block_number = 8545406
 block_interval = 6
 wait_time = 10
+points_rate = "0.05"
 [[chains]]
 name = "mainnet"
 chain_id = 1
@@ -43,6 +44,7 @@ boss_staking_address = "0xCbC832Cb1829FAc8F6bAFBEcEb91ba746be0B5ED"
 start_block_number = 8545406
 block_interval = 6
 wait_time = 10
+points_rate = "0.05"
 
 [monitor]
 pprof_enable = true

@@ -1,9 +1,10 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"math/big"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 func init() {
@@ -83,7 +84,7 @@ func (m *UserBalanceModel) Page(page, pageSize int) ([]*UserBalance, int64, erro
 	return list, total, nil
 }
 
-func (m *UserBalanceModel) AddPoints(address string, points *big.Int) error {
+func (m *UserBalanceModel) AddPoints(address string, points *big.Float) error {
 	// 原子性
 	if err := m.DB.Model(&UserBalance{}).Where("address = ?", address).UpdateColumn("points", gorm.Expr("points + ?", points)).Error; err != nil {
 		return err

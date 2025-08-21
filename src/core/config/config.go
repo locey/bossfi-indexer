@@ -65,6 +65,7 @@ type ChainConfig struct {
 	StartBlockNumber   int64  `toml:"start_block_number" json:"startBlockNumber"`
 	BlockInterval      int    `toml:"block_interval" json:"BlockInterval"` // 同步区块时需等待的区块数量
 	WaitTime           int    `toml:"wait_time" json:"WaitTime"`           // 同步区块时需等待的时间
+	PointsRate         string `toml:"points_rate" json:"PointsRate"`       // 积分比例
 }
 
 // InitConfig 初始化配置

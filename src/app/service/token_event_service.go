@@ -8,6 +8,7 @@ import (
 
 	"bossfi-indexer/src/app/model"
 	"bossfi-indexer/src/core/chainclient/evm"
+	"bossfi-indexer/src/core/config"
 	"bossfi-indexer/src/core/ctx"
 	"bossfi-indexer/src/core/db"
 	"bossfi-indexer/src/core/log"
@@ -281,7 +282,7 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 
 	// 在开启事务前先把已经确认的区块直接更新掉
 	if len(confirmedEvents) > 0 {
-		s.ConfirmBlockEvents(confirmedEvents)
+		s.ConfirmBlockEvents(confirmedEvents, evmAdapter.ChainConfig())
 	}
 
 	// 计算出要回滚区块的 账户>金额数量
@@ -340,54 +341,88 @@ func (s *TokenEventService) ConfirmTokenEvent(chainID int) {
 	log.Logger.Info("ConfirmTokenEvent done")
 }
 
-func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEvent) {
+func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEvent, chainConfig *config.ChainConfig) {
 	tx := ctx.Ctx.DB.Begin()
 
-	// userBalanceDao := &model.UserBalanceModel{DB: tx}
+	userBalanceDao := &model.UserBalanceModel{DB: tx}
 
-	// var pointsLogs []*model.UserPointsLog
+	var pointsLogs []*model.UserPointsLog
 	confirmedEventIds := make([]int64, len(confirmedEvents))
 	for i, event := range confirmedEvents {
 		confirmedEventIds[i] = event.ID
-		// // 更新积分
-		// points := new(big.Int)
-		// if _, ok := points.SetString(event.Amount, 10); !ok {
-		// 	log.Logger.Error("confirm event invalid number", zazap.String("amount", event.Amount))
-		// 	tx.Rollback()
-		// 	return
-		// }
+		// 更新积分
+		points := new(big.Float)
+		if _, ok := points.SetString(event.Amount); !ok {
+			log.Logger.Error("confirm event invalid number", zazap.String("amount", event.Amount))
+			tx.Rollback()
+			return
+		}
+		rate, _ := new(big.Float).SetString(chainConfig.PointsRate)
+		points = points.Mul(points, rate) // 积分比例
 
-		// // 对已确认的区块事件to用户增加积分
-		// err := userBalanceDao.AddPoints(event.ToAddress, points)
-		// if err != nil {
-		// 	log.Logger.Error("AddPoints failed!", zazap.Error(err))
-		// 	tx.Rollback()
-		// 	return
-		// }
+		// 对已确认的区块事件to用户增加积分
+		err := userBalanceDao.AddPoints(event.ToAddress, points)
+		if err != nil {
+			log.Logger.Error("AddPoints failed!", zazap.Error(err))
+			tx.Rollback()
+			return
+		}
+		// 对已确认的区块事件from用户减少积分
+		minusPoints := new(big.Float).Neg(points)
+		err = userBalanceDao.AddPoints(event.FromAddress, minusPoints)
+		if err != nil {
+			log.Logger.Error("AddPoints failed!", zazap.Error(err))
+			tx.Rollback()
+			return
+		}
 
-		// nowUserPoints, err := userBalanceDao.GetByAddress(event.ToAddress)
-		// if err != nil {
-		// 	log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
-		// 	tx.Rollback()
-		// 	return
-		// }
+		nowUserPoints, err := userBalanceDao.GetByAddress(event.ToAddress)
+		if err != nil {
+			log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
+			tx.Rollback()
+			return
+		}
 
-		// afterPoints := new(big.Int)
-		// if _, ok := afterPoints.SetString(nowUserPoints.Points, 10); !ok {
-		// 	log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPoints.Points))
-		// 	tx.Rollback()
-		// 	return
-		// }
+		afterPoints := new(big.Float)
+		if _, ok := afterPoints.SetString(nowUserPoints.Points); !ok {
+			log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPoints.Points))
+			tx.Rollback()
+			return
+		}
 
-		// pointLog := &model.UserPointsLog{
-		// 	Address:      event.ToAddress,
-		// 	LogType:      model.PointsTypeIncome,
-		// 	BeforePoints: new(big.Int).Sub(afterPoints, points).String(),
-		// 	ChangePoints: event.Amount,
-		// 	AfterPoints:  nowUserPoints.Points,
-		// 	TxHash:       event.TxHash,
-		// }
-		// pointsLogs = append(pointsLogs, pointLog)
+		pointLog := &model.UserPointsLog{
+			Address:      event.ToAddress,
+			LogType:      model.PointsTypeIncome,
+			BeforePoints: new(big.Float).Sub(afterPoints, points).String(),
+			ChangePoints: points.String(),
+			AfterPoints:  nowUserPoints.Points,
+			TxHash:       event.TxHash,
+		}
+
+		// 对已确认的区块事件from用户减少积分
+		nowUserPointsFrom, err := userBalanceDao.GetByAddress(event.FromAddress)
+		if err != nil {
+			log.Logger.Error("GetPointByAddress failed! ", zazap.String("address", event.ToAddress), zazap.Error(err))
+			tx.Rollback()
+			return
+		}
+
+		afterPointsFrom := new(big.Float)
+		if _, ok := afterPointsFrom.SetString(nowUserPointsFrom.Points); !ok {
+			log.Logger.Error("confirm event invalid number", zazap.String("points", nowUserPointsFrom.Points))
+			tx.Rollback()
+			return
+		}
+
+		pointLogFrom := &model.UserPointsLog{
+			Address:      event.FromAddress,
+			LogType:      model.PointsTypeExpense,
+			BeforePoints: new(big.Float).Sub(afterPointsFrom, minusPoints).String(),
+			ChangePoints: minusPoints.String(),
+			AfterPoints:  nowUserPointsFrom.Points,
+			TxHash:       event.TxHash,
+		}
+		pointsLogs = append(pointsLogs, pointLog, pointLogFrom)
 	}
 
 	tokenEventDao := &model.TokenEventModel{DB: tx}
@@ -399,13 +434,13 @@ func (s *TokenEventService) ConfirmBlockEvents(confirmedEvents []*model.TokenEve
 	}
 
 	// 记录积分流水
-	// userPointsLogModel := &model.UserPointsLogModel{DB: tx}
-	// err = userPointsLogModel.CreateBatch(pointsLogs)
-	// if err != nil {
-	// 	log.Logger.Error("Create points log failed!", zazap.Error(err))
-	// 	tx.Rollback()
-	// 	return
-	// }
+	userPointsLogModel := &model.UserPointsLogModel{DB: tx}
+	err = userPointsLogModel.CreateBatch(pointsLogs)
+	if err != nil {
+		log.Logger.Error("Create points log failed!", zazap.Error(err))
+		tx.Rollback()
+		return
+	}
 
 	tx.Commit()
 }
